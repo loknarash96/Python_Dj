@@ -7,12 +7,13 @@ class WomenAdmin(admin.ModelAdmin):
     search_fields = ('title','content')
     list_editable = ('is_published',) #кортеж
     list_filter = ('is_published','time_create')
+    prepopulated_fields = {'slug': ("title",)}
 
 class CategoryAdmin(admin.ModelAdmin):
     list_display = ('id','name')
     list_display_links = ('id','name')
     search_fields = ('name',) #Кортеж, поэтому и запятая
-
+    prepopulated_fields = {'slug':("name",)} #Автозаполнение
 
 admin.site.register(Women, WomenAdmin,) #появилось на админ панели, вторым параметром второстепенные классы
 admin.site.register(Category,CategoryAdmin)
