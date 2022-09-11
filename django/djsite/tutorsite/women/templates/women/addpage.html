@@ -1,0 +1,20 @@
+{% extends 'women/base.html' %}
+
+{%  block content %}
+<h1>{{ title }}</h1>
+
+<form action="{% url 'add_page' %}" method="post" enctype="multipart/form-data"> <!-- атрубут для загрузки файлов -->
+    {%  csrf_token %} <!--защита от злоумышленников, создается спец. скрытое поле с токеном
+     ,который генерируется после обновления страницы, и если тот совпадает - то форма обрабатывается-->
+    <div class="form-error">{{ form.non_field_errors }}</div>
+
+{% for f in form %}
+<p><label class="form-label" for="{{ f.id_for_label }}">{{ f.label }}: </label>{{ f }}</p>
+<dev class="form-error">{{ f.errors }}</dev>
+{% endfor %}
+    <button type="submit">Добавить</button>
+
+</form>
+
+
+{% endblock %}
