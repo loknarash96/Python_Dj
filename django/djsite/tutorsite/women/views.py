@@ -1,29 +1,27 @@
+from django.contrib.auth import logout, login
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.views import LoginView
+from django.core.paginator import Paginator
 from django.http import HttpResponse, HttpResponseNotFound, Http404
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse_lazy
 from django.views.generic import ListView, DetailView, CreateView
-
+from django.contrib.auth.mixins import LoginRequiredMixin
 from .forms import *
 from .models import *
-
-menu = [{'title': "О сайте", 'url_name': 'about'},
-        {'title': "Добавить статью", 'url_name': 'add_page'},
-        {'title': "Обратная связь", 'url_name': 'contact'},
-        {'title': "Войти", 'url_name': 'login'}
-]
+from .utils import *
 
 
-class WomenHome(ListView):
+class WomenHome(DataMixin,ListView):
+
     model = Women
     template_name = 'women/index.html'
     context_object_name = 'posts'
 
-    def get_context_data(self, *, object_list=None, **kwargs):
+    def get_context_data(self, *, object_list=None, **kwargs): #mixin
         context = super().get_context_data(**kwargs)
-        context['menu'] = menu
-        context['title'] = 'Главная страница'
-        context['cat_selected'] = 0
-        return context
+        c_def = self.get_user_context(title='Главная страница')
+        return dict(list(context.items())+ list(c_def.items()))
 
     def get_queryset(self):
         return Women.objects.filter(is_published=True)
@@ -40,21 +38,27 @@ class WomenHome(ListView):
 #     }
 #
 #     return render(request, 'women/index.html', context=context)
-
+@login_required
 def about(request):
-    return render(request, 'women/about.html', {'menu': menu, 'title': 'О сайте'})
+    contact_list = Women.objects.all()
+    paginator = Paginator(contact_list,3)
+
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    return render(request, 'women/about.html', {'page_obj': page_obj,'menu': menu, 'title': 'О сайте'})
 
 
-class AddPage(CreateView):
+class AddPage(LoginRequiredMixin, DataMixin, CreateView): #работа с формой + авторизация через Mixin
     form_class = AddPostForm
     template_name = 'women/addpage.html'
     success_url = reverse_lazy('home')
+    login_url = reverse_lazy('home')
+    raise_exception = True
 
     def get_context_data(self, *, object_list=None, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['title'] = 'Добавление статьи'
-        context['menu'] = menu
-        return context
+        c_def = self.get_user_context(title = "Добавление статьи") #Create view
+        return dict(list(context.items()) + list(c_def.items()))
 
 
 # def addpage(request):
@@ -71,8 +75,8 @@ class AddPage(CreateView):
 def contact(request):
     return HttpResponse("Обратная связь")
 
-def login(request):
-    return HttpResponse("Авторизация")
+# def login(request):
+#     return HttpResponse("Авторизация")
 
 
 def pageNotFound(request, exception):
@@ -90,7 +94,8 @@ def pageNotFound(request, exception):
 #
 #     return render(request, 'women/post.html', context=context)
 
-class ShowPost(DetailView):
+class ShowPost(DataMixin,DetailView):
+
     model = Women
     template_name = 'women/post.html'
     slug_url_kwarg = 'post_slug'
@@ -98,12 +103,12 @@ class ShowPost(DetailView):
 
     def get_context_data(self, *, object_list=None, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['title'] = context['post']
-        context['menu'] = menu
-        return context
+        c_def = self.get_user_context(title="post")
+        return dict(list(context.items()) + list(c_def.items()))
 
 
-class WomenCategory(ListView):
+class WomenCategory(DataMixin, ListView):
+
     model = Women
     template_name = 'women/index.html'
     context_object_name = 'posts'
@@ -114,12 +119,24 @@ class WomenCategory(ListView):
 
     def get_context_data(self, *, object_list=None, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['title'] = 'Категория - ' + str(context['posts'][0].cat)
-        context['menu'] = menu
-        context['cat_selected'] = context['posts'][0].cat_id
-        return context
+        c_def = self.get_user_context(title='Категория - ' + str(context['posts'][0].cat),
+                                      cat_selected = context['posts'][0].cat.id)
+        return dict(list(context.items()) + list(c_def.items()))
 
+class RegisterUser(DataMixin,CreateView):
+    form_class = RegisterUserForm
+    template_name = 'women/register.html'
+    success_url = reverse_lazy('login')
 
+    def get_context_data(self, *,object_list=None, **kwargs):
+        context = super().get_context_data(**kwargs)
+        c_def = self.get_user_context(title="Регистрация")
+        return dict(list(context.items()) + list(c_def.items()))
+
+    def form_valid(self, form): #после регистрации сразу происходит авторизация пользователя
+        user = form.save()
+        login(self.request,user)
+        return redirect('home')
 # def show_category(request, cat_id):
 #     posts = Women.objects.filter(cat_id=cat_id)
 #
@@ -135,3 +152,20 @@ class WomenCategory(ListView):
 #
 #     return render(request, 'women/index.html', context=context)
 
+
+class LoginUser(DataMixin, LoginView):
+    form_class = LoginUserForm
+    template_name = 'women/login.html'
+
+
+    def get_context_data(self, *, object_list =None, **kwargs):
+        context = super().get_context_data(**kwargs)
+        c_def = self.get_user_context(title='Авторизация')
+        return dict(list(context.items()) + list(c_def.items()))
+
+    def get_success_url(self):
+        return reverse_lazy('home') #редирект на home при успешном логине
+
+def logout_user(request):
+    logout(request)
+    return redirect('login')
