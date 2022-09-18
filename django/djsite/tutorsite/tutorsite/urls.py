@@ -22,6 +22,7 @@ from women.views import *
 from django.urls import path, include
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('captcha/',include('captcha.urls')),#привязал капчу, не забыл сделать миграцию
     path('', include('women.urls')),
 ]
 if settings.DEBUG:
